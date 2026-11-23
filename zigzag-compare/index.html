@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>딜레이더 · 이벤트 혜택 한눈에</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div class="logo"><span class="logo-mark">◎</span> 딜레이더</div>
+      <div class="updated" id="updated"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>오늘 진행 중인 이벤트, <em>혜택만</em> 모아봤어요</h1>
+      <p class="sub" id="heroSub"></p>
+    </section>
+
+    <section class="top-split">
+      <div class="panel ev-panel">
+        <div class="sec-head">
+          <h2>진행 중인 이벤트</h2>
+          <span class="hint" id="evFilterInfo">누르면 그 이벤트 상품만 보여요</span>
+          <span class="head-actions">
+            <button class="btn primary" id="addEvent">+ 직접 추가</button>
+            <button class="btn" id="exportEv" title="직접 입력한 이벤트를 파일로 저장">내보내기</button>
+            <label class="btn" title="내보낸 파일 불러오기">가져오기<input type="file" id="importEv" accept=".json" hidden></label>
+          </span>
+        </div>
+        <div class="events" id="events"></div>
+      </div>
+
+      <aside class="panel cal-panel">
+        <div class="cal-head">
+          <button class="cal-nav" id="calPrev" aria-label="이전 달">‹</button>
+          <strong id="calTitle"></strong>
+          <button class="cal-nav" id="calNext" aria-label="다음 달">›</button>
+        </div>
+        <div class="cal-grid cal-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div class="cal-grid" id="calDays"></div>
+        <div class="cal-info" id="calInfo"></div>
+      </aside>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>이벤트 한눈에 비교</h2></div>
+      <div class="table-scroll">
+        <table class="cmp" id="cmpTable"></table>
+      </div>
+    </section>
+
+    <section id="kurlySection" hidden>
+      <div class="sec-head">
+        <h2><span class="src-badge kurly">뷰티컬리</span> 기획전</h2>
+        <span class="hint" id="kurlyInfo"></span>
+      </div>
+      <div class="kurly-list" id="kurlyList"></div>
+    </section>
+
+    <section id="explore">
+      <div class="sec-head">
+        <h2>상품 찾기</h2>
+        <span class="hint" id="resultCount"></span>
+      </div>
+
+      <div class="seg" id="sourceSeg">
+        <button class="on" data-src="">전체</button>
+        <button data-src="zigzag"><span class="src-dot zigzag"></span>지그재그</button>
+        <button data-src="kurly"><span class="src-dot kurly"></span>뷰티컬리</button>
+      </div>
+      <div class="filters">
+        <input id="q" type="search" placeholder="상품명·쇼핑몰 검색 (예: 패딩, 가디건)">
+        <select id="cat1"><option value="">전체 카테고리</option></select>
+        <select id="cat2" disabled><option value="">세부 카테고리</option></select>
+        <select id="minDisc">
+          <option value="0">할인율 전체</option>
+          <option value="30">30% 이상</option>
+          <option value="50">50% 이상</option>
+          <option value="70">70% 이상</option>
+        </select>
+        <select id="maxPrice">
+          <option value="0">가격 전체</option>
+          <option value="10000">1만원 이하</option>
+          <option value="30000">3만원 이하</option>
+          <option value="50000">5만원 이하</option>
+          <option value="100000">10만원 이하</option>
+        </select>
+        <select id="couponFilter" title="표시 가격은 쿠폰이 적용된 최종 혜택가예요">
+          <option value="">쿠폰 전체</option>
+          <option value="coupon">쿠폰 적용 상품</option>
+          <option value="noCoupon">쿠폰 없이도 이 가격</option>
+        </select>
+        <select id="sort">
+          <option value="disc">할인율 높은순</option>
+          <option value="price">가격 낮은순</option>
+          <option value="reviews">리뷰 많은순</option>
+          <option value="score">평점 높은순</option>
+          <option value="multi">여러 이벤트 중복순</option>
+          <option value="nearLow">기록상 최저가에 가까운순</option>
+        </select>
+        <label class="check" title="수집한 가격 기록 중 지금이 가장 싼 상품"><input type="checkbox" id="lowOnly"> 기록상 최저가만</label>
+        <label class="check"><input type="checkbox" id="freeShip"> 무료배송만</label>
+        <label class="check"><input type="checkbox" id="hasReview"> 리뷰 100개 이상</label>
+      </div>
+      <div class="event-chips" id="eventChips"></div>
+      <p class="history-note" id="historyNote"></p>
+
+      <div class="grid" id="grid"></div>
+      <div class="more-wrap"><button id="more" class="more">더 보기</button></div>
+    </section>
+  </main>
+
+  <dialog id="evDialog">
+    <form id="evForm" method="dialog">
+      <h3 id="evFormTitle">이벤트 직접 추가</h3>
+      <p class="form-hint">다른 앱 이벤트처럼 자동 수집이 안 되는 이벤트를 기록해요. 상품 목록은 없어서 혜택 비교에만 쓰여요.</p>
+      <div class="form-grid">
+        <label>앱/쇼핑몰 *<input name="platform" required list="platformList" placeholder="예: 에이블리"></label>
+        <label>이벤트명 *<input name="title" required placeholder="예: 뷰티 블프 특가"></label>
+        <label>시작일<input name="start" type="date"></label>
+        <label>종료일 *<input name="end" type="date" required></label>
+        <label>최대 쿠폰 %<input name="max_coupon_pct" type="number" min="0" max="99" placeholder="30"></label>
+        <label>최대 할인 %<input name="max_discount_pct" type="number" min="0" max="99" placeholder="70"></label>
+        <label class="wide">적용 대상<input name="scope" placeholder="예: 뷰티 전 상품 / 참여 브랜드만 / 2만원 이상 구매 시"></label>
+        <label class="wide">링크<input name="url" type="url" placeholder="https://..."></label>
+        <label class="wide">메모<input name="memo" placeholder="예: 쿠폰 최대 1만원까지, 앱에서만 다운로드"></label>
+        <label class="check wide"><input name="free_shipping" type="checkbox"> 무료배송</label>
+      </div>
+      <datalist id="platformList"><option>에이블리</option><option>무신사</option><option>올리브영</option><option>29CM</option><option>W컨셉</option></datalist>
+      <div class="form-actions">
+        <button type="button" class="btn danger" id="evDelete">삭제</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="evCancel">취소</button>
+        <button type="submit" class="btn primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="wrap foot">
+    개인 프로젝트 · 지그재그 이벤트 페이지와 뷰티컬리 메인 페이지의 공개 정보를 정리한 것으로, 실제 가격·쿠폰 조건은 각 상품 페이지에서 확인하세요.
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="kurly.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
