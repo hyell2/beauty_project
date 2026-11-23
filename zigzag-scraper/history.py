@@ -92,6 +92,27 @@ def stats(source):
             for pid, mn, mx, n, first, md in rows}
 
 
+def export_site_js(site_dir, days=365):
+    """사이트 그래프용 상품별 가격 기록 → site_dir/history.js
+    형식: {d0: 기준일, zigzag: {상품ID: [[기준일부터 일수, 쿠폰적용가, 쿠폰전가격], ...]}, kurly: {...}}"""
+    import json
+    from datetime import date, timedelta
+    con = connect()
+    since = (date.today() - timedelta(days=days)).isoformat()
+    rows = con.execute("""SELECT source, product_id, date, price, pre_coupon FROM prices
+                          WHERE date >= ? ORDER BY source, product_id, date""", (since,)).fetchall()
+    con.close()
+    d0 = min((r[2] for r in rows), default=date.today().isoformat())
+    base = date.fromisoformat(d0)
+    out = {"d0": d0, "zigzag": {}, "kurly": {}}
+    for src, pid, d, price, pre in rows:
+        off = (date.fromisoformat(d) - base).days
+        out.setdefault(src, {}).setdefault(pid, []).append([off, price, pre if pre and pre != price else None])
+    path = Path(site_dir) / "history.js"
+    path.write_text("window.PRICE_HISTORY = " + json.dumps(out, separators=(",", ":")) + ";\n", encoding="utf-8")
+    return path
+
+
 def export_excel(path=XLSX_PATH):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill

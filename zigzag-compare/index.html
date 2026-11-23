@@ -142,12 +142,42 @@
     </form>
   </dialog>
 
+  <dialog id="histDialog" class="hist" aria-labelledby="hTitle">
+    <div class="hist-inner">
+      <div class="hist-head">
+        <div style="min-width:0">
+          <div class="shop" id="hShop"></div>
+          <div class="hist-title" id="hTitle"></div>
+        </div>
+        <button class="btn" id="hClose">닫기</button>
+      </div>
+      <div class="hstats" id="hStats"></div>
+      <div class="viz-root" id="hViz">
+        <div class="hchart-head">
+          <span class="hchart-title" id="hChartTitle">가격 변화</span>
+          <span class="hlegend" id="hLegend"></span>
+        </div>
+        <div class="hchart" id="hChart"></div>
+        <div class="htip" id="hTip" hidden></div>
+      </div>
+      <details class="htable-wrap">
+        <summary>날짜별 기록표</summary>
+        <div class="table-scroll"><table class="cmp" id="hTable"></table></div>
+      </details>
+      <div class="hist-foot">
+        <span class="hint" id="hNote"></span>
+        <a id="hLink" target="_blank" rel="noopener">상품 보러가기 ↗</a>
+      </div>
+    </div>
+  </dialog>
+
   <footer class="wrap foot">
     개인 프로젝트 · 지그재그 이벤트 페이지와 뷰티컬리 메인 페이지의 공개 정보를 정리한 것으로, 실제 가격·쿠폰 조건은 각 상품 페이지에서 확인하세요.
   </footer>
 
   <script src="data.js"></script>
   <script src="kurly.js"></script>
+  <script src="history.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

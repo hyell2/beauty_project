@@ -8,7 +8,9 @@
 
 - 수집이 실패하면 각 스크립트가 기존 데이터를 덮어쓰지 않고 종료하므로, 이전 데이터가 그대로 유지됨
 - 로그: output/logs/update_YYYY-MM-DD_HHMM.log (30일 지난 로그는 자동 삭제)
-- 직접 실행해도 됨:  ..\\venv\\Scripts\\python update.py
+- 하루 한 번만 실행: 오늘 이미 끝났으면 바로 종료 (output/last_update.txt). PC 로그인 때 + 매일 8시에 호출됨
+- 직접 실행해도 됨:  ..\\venv\\Scripts\\python update.py          (오늘 이미 했으면 건너뜀)
+                    ..\\venv\\Scripts\\python update.py --force  (강제로 다시 수집)
 """
 import os
 import subprocess
@@ -20,11 +22,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 PY = ROOT / "venv" / "Scripts" / "python.exe"
-SITE_FILES = ["zigzag-compare/data.js", "zigzag-compare/kurly.js"]
+SITE_FILES = ["zigzag-compare/data.js", "zigzag-compare/kurly.js", "zigzag-compare/history.js"]
 LOG_DIR = HERE / "output" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG = LOG_DIR / f"update_{datetime.now():%Y-%m-%d_%H%M}.log"
+LOG = LOG_DIR / f"update_{datetime.now():%Y-%m-%d_%H%M%S}.log"
 ENV = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+# 오늘 수집을 마쳤는지 기록하는 파일 (PC를 여러 번 켜도 하루 한 번만 수집)
+DONE_MARK = HERE / "output" / "last_update.txt"
 
 
 def log(msg):
@@ -52,6 +56,11 @@ def git(*args):
 
 
 def main():
+    today = f"{datetime.now():%Y-%m-%d}"
+    force = "--force" in sys.argv
+    if not force and DONE_MARK.exists() and DONE_MARK.read_text(encoding="utf-8").strip() == today:
+        LOG.unlink(missing_ok=True)  # 건너뛸 때는 로그도 남기지 않음
+        return 0
     t0 = time.time()
     log("=== 딜레이더 자동 업데이트 시작 ===")
 
@@ -69,6 +78,7 @@ def main():
         log("사이트 데이터 변경 없음 → 업로드 생략")
     else:
         msg = f"자동 업데이트: {datetime.now():%Y-%m-%d} 데이터"
+        git("add", "--", *SITE_FILES)  # 새로 생긴 파일(history.js 등)도 포함되도록
         r = git("commit", "-m", msg, "--", *SITE_FILES)
         log(f"커밋: {'완료' if r.returncode == 0 else '실패 ' + (r.stderr or r.stdout).strip()[:300]}")
     r = git("push", "-q")
@@ -80,6 +90,8 @@ def main():
         if time.time() - f.stat().st_mtime > 30 * 86400:
             f.unlink(missing_ok=True)
 
+    # 하나라도 성공했으면 오늘은 완료로 표시 (둘 다 실패한 경우는 위에서 return 되어 다음에 켤 때 재시도)
+    DONE_MARK.write_text(today, encoding="utf-8")
     log(f"=== 끝 ({(time.time() - t0) / 60:.0f}분) ===")
     return 0 if (k == 0 and z == 0) else 2
 

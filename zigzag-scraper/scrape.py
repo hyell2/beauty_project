@@ -549,6 +549,8 @@ def main():
 
     write_outputs(events, products, links, out, site, stats)
     print(f"  기록  -> {history.export_excel()}")
+    if site:
+        print(f"  그래프 -> {history.export_site_js(site)}")
     print(f"\n완료: 이벤트 {len(events)}개, 상품 {len(products)}개" + (f" (대분류: {args.cat1})" if args.cat1 else ""))
     print(f"  엑셀  -> {out / 'zigzag_data.xlsx'}")
     print(f"  CSV   -> {out}")

@@ -232,6 +232,8 @@ def main():
     print(f"  엑셀  -> {out / 'kurly_data.xlsx'}")
     print(f"  사이트 -> {site / 'kurly.js'}")
     print(f"  기록  -> {history.export_excel()}")
+    if site:
+        print(f"  그래프 -> {history.export_site_js(site)}")
 
 
 if __name__ == "__main__":

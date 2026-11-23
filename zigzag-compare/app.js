@@ -447,7 +447,8 @@
     const review = p.source === "kurly"
       ? (p.reviewsText ? `<span>리뷰 ${esc(p.reviewsText)}</span>` : "")
       : (p.reviews ? `<span><span class="star">★</span> ${p.score} (${p.reviews.toLocaleString()})</span>` : "");
-    return `<a class="card ${p.source}" href="${esc(p.url)}" target="_blank" rel="noopener" title="${SRC_LABEL[p.source]}에서 보기">
+    return `<div class="card ${p.source}">
+      <a class="card-link" href="${esc(p.url)}" target="_blank" rel="noopener" title="${SRC_LABEL[p.source]}에서 보기">
       <div class="thumb"><img loading="lazy" src="${esc(p.img)}" alt="">
         <span class="src-badge ${p.source}">${SRC_LABEL[p.source]}</span>
         ${evs.length > 1 ? `<span class="multi">${evs.length}개 이벤트 노출</span>` : ""}</div>
@@ -456,12 +457,137 @@
       <div class="price-row">${p.disc ? `<span class="disc">${p.disc}%</span>` : ""}<span class="price">${won(p.price)}</span>
         ${p.orig > p.price ? `<span class="orig">${won(p.orig)}</span>` : ""}${hasCoupon(p) ? `<span class="cp-badge">쿠폰가</span>` : ""}</div>
       ${couponLine(p)}
-      ${(() => { const v = priceVerdict(p); return `<div class="pv ${v.type}">${v.html}</div>`; })()}
+      </a>
+      ${(() => { const v = priceVerdict(p); return `<button type="button" class="pv ${v.type}" data-hist="${esc(p.source)}:${esc(p.id)}" title="가격 기록 그래프 보기">${v.html}</button>`; })()}
       <div class="meta">${p.coupon && !(hasCoupon(p) && /^\+?\d+%\s*쿠폰$/.test(p.coupon.trim())) ? `<span class="coupon">${esc(p.coupon)}</span>` : ""}${review}
         ${p.freeShip ? `<span class="free">무료배송</span>` : ""}${p.soldOut ? `<span style="color:var(--warn)">품절</span>` : ""}</div>
       <div class="ev-tags" title="이 상품이 노출된 이벤트·기획전 (쿠폰 적용 조건은 상품 페이지에서 확인)">${evs.map((e) => `<span class="ev-tag" style="background:${e.color}">${esc(e.title)}</span>`).join("")}</div>
-    </a>`;
+    </div>`;
   }
+
+  // ---- 가격 기록 창 + 그래프 ----
+  const H = window.PRICE_HISTORY;
+  const byKey = Object.fromEntries(products.map((p) => [`${p.source}:${p.id}`, p]));
+  const fmtD = (d) => `${d.getMonth() + 1}.${d.getDate()}`;
+  const compact = (n) => (n >= 10000 ? `${+(n / 10000).toFixed(n % 10000 ? 1 : 0)}만` : n.toLocaleString());
+
+  function historyOf(p) {
+    const rows = H?.[p.source]?.[p.id] || [];
+    const base = new Date(H?.d0 + "T00:00:00");
+    return rows.map(([off, price, pre]) => ({ date: new Date(base.getTime() + off * 86400000), price, pre: pre || null }));
+  }
+
+  function niceTicks(lo, hi, count = 4) {
+    const span = hi - lo || hi || 1;
+    const raw = span / count, mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+    const start = Math.floor(lo / step) * step, ticks = [];
+    for (let v = start; v <= hi + step * 0.001; v += step) ticks.push(Math.round(v));
+    return ticks;
+  }
+
+  function drawChart(pts) {
+    const box = $("#hChart"), tip = $("#hTip");
+    tip.hidden = true;
+    const hasPre = pts.some((d) => d.pre);
+    $("#hLegend").innerHTML = hasPre
+      ? `<span><i class="lkey" style="background:var(--series-1)"></i>쿠폰 적용가</span><span><i class="lkey" style="background:var(--series-2)"></i>쿠폰 전 가격</span>`
+      : "";
+    $("#hChartTitle").textContent = hasPre ? "가격 변화" : "가격 변화 (쿠폰 적용가)";
+    if (pts.length < 2) {
+      box.innerHTML = `<div class="hempty">기록이 2일 이상 쌓이면 그래프가 나와요.<br>지금은 ${pts.length ? fmtD(pts[0].date) + " 기록 1개" : "기록이 없어요"} · 매일 자동으로 쌓여요</div>`;
+      return;
+    }
+    const W = Math.max(300, box.clientWidth || 560), Hh = 230;
+    const m = { l: 52, r: 70, t: 18, b: 26 };
+    const vals = pts.flatMap((d) => [d.price, d.pre].filter(Boolean));
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const pad = (hi - lo) * 0.12 || hi * 0.05;
+    const ticks = niceTicks(lo - pad, hi + pad);
+    lo = ticks[0]; hi = ticks[ticks.length - 1];
+    const t0 = pts[0].date.getTime(), t1 = pts[pts.length - 1].date.getTime();
+    const x = (d) => m.l + ((d.date.getTime() - t0) / (t1 - t0)) * (W - m.l - m.r);
+    const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (Hh - m.t - m.b);
+    const path = (key) => {
+      let s = "", pen = false;
+      pts.forEach((d) => { if (d[key] == null) { pen = false; return; } s += `${pen ? "L" : "M"}${x(d).toFixed(1)},${y(d[key]).toFixed(1)}`; pen = true; });
+      return s;
+    };
+    const minV = Math.min(...pts.map((d) => d.price));
+    const minIdx = pts.map((d) => d.price).lastIndexOf(minV);
+    const last = pts[pts.length - 1], lastIsMin = minIdx === pts.length - 1;
+    const showDots = pts.length <= 31;
+    const dot = (d, key, color, r = 4) => `<circle cx="${x(d)}" cy="${y(d[key])}" r="${r}" fill="${color}" stroke="var(--surface-1)" stroke-width="2"/>`;
+    // x축 날짜 라벨: 처음·끝 + 공간이 되면 중간
+    const xl = [pts[0], last];
+    if (pts.length > 2 && W > 380) xl.splice(1, 0, pts[Math.floor((pts.length - 1) / 2)]);
+    const grid = ticks.map((v) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>
+      <text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-muted)">${compact(v)}</text>`).join("");
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="가격 변화: ${fmtD(pts[0].date)}부터 ${fmtD(last.date)}까지 ${pts.length}일, 최저 ${won(minV)}, 현재 ${won(last.price)}">
+      ${grid}
+      ${xl.map((d) => `<text x="${x(d)}" y="${Hh - 6}" text-anchor="middle" font-size="11" fill="var(--text-muted)">${fmtD(d.date)}</text>`).join("")}
+      <line x1="${m.l}" x2="${W - m.r}" y1="${y(minV)}" y2="${y(minV)}" stroke="var(--text-muted)" stroke-width="1" opacity=".55"/>
+      ${hasPre ? `<path d="${path("pre")}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ""}
+      <path d="${path("price")}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${showDots && hasPre ? pts.filter((d) => d.pre).map((d) => dot(d, "pre", "var(--series-2)", 3)).join("") : ""}
+      ${showDots ? pts.map((d) => dot(d, "price", "var(--series-1)", 3)).join("") : ""}
+      ${dot(pts[minIdx], "price", "var(--series-1)", 5)}${dot(last, "price", "var(--series-1)", 5)}
+      <text x="${W - m.r + 8}" y="${y(last.price) + 4}" font-size="12" font-weight="700" fill="var(--text)">${last.price.toLocaleString()}원</text>
+      <text x="${W - m.r + 8}" y="${y(last.price) + 18}" font-size="10.5" fill="var(--text-muted)">${lastIsMin ? "오늘·최저" : "오늘"}</text>
+      ${lastIsMin ? "" : `<text x="${Math.min(Math.max(x(pts[minIdx]), m.l + 40), W - m.r - 40)}" y="${y(minV) + 18}" text-anchor="middle" font-size="11" fill="var(--text-secondary)">최저 ${won(minV)} (${fmtD(pts[minIdx].date)})</text>`}
+      <line id="hCross" x1="0" x2="0" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--text-muted)" stroke-width="1" visibility="hidden"/>
+      <rect id="hHit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${Hh}" fill="transparent"/>
+    </svg>`;
+    // 크로스헤어 + 툴팁: 가장 가까운 날짜에 맞춤
+    const svg = box.querySelector("svg"), cross = svg.querySelector("#hCross");
+    const move = (ev) => {
+      const r = svg.getBoundingClientRect(), sx = ((ev.clientX - r.left) / r.width) * W;
+      let best = 0;
+      pts.forEach((d, i) => { if (Math.abs(x(d) - sx) < Math.abs(x(pts[best]) - sx)) best = i; });
+      const d = pts[best], px = x(d);
+      cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
+      tip.innerHTML = `<div class="d">${d.date.getFullYear()}.${fmtD(d.date)}${best === minIdx ? " · 기록상 최저" : ""}</div>
+        <div class="r"><i class="lkey" style="background:var(--series-1)"></i>쿠폰 적용가 <b>${won(d.price)}</b></div>
+        ${d.pre ? `<div class="r"><i class="lkey" style="background:var(--series-2)"></i>쿠폰 전 ${won(d.pre)}</div>` : ""}`;
+      tip.hidden = false;
+      const wrap = $("#hViz").getBoundingClientRect(), cx = r.left - wrap.left + (px / W) * r.width;
+      tip.style.left = `${Math.min(Math.max(cx - tip.offsetWidth / 2, 0), wrap.width - tip.offsetWidth)}px`;
+      tip.style.top = `${r.top - wrap.top + 4}px`;
+    };
+    svg.addEventListener("pointermove", move);
+    svg.addEventListener("pointerdown", move);
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+  }
+
+  function openHistory(p) {
+    const pts = historyOf(p);
+    const v = priceVerdict(p);
+    $("#hShop").textContent = `${SRC_LABEL[p.source]} · ${p.shop || ""}`;
+    $("#hTitle").textContent = p.title;
+    $("#hLink").href = safeUrl(p.url);
+    const maxV = pts.length ? Math.max(...pts.map((d) => d.price)) : p.price;
+    const minP = pts.length ? pts.reduce((a, d) => (d.price <= a.price ? d : a), pts[0]) : null;
+    $("#hStats").innerHTML = `
+      <div class="hstat"><div class="l">오늘 가격</div><div class="v">${won(p.price)}</div><div class="s">${hasCoupon(p) ? "쿠폰 적용가" : "&nbsp;"}</div></div>
+      <div class="hstat"><div class="l">기록상 최저가</div><div class="v">${minP ? won(minP.price) : "-"}</div><div class="s">${minP ? fmtD(minP.date) : "&nbsp;"}</div></div>
+      <div class="hstat"><div class="l">기록상 최고가</div><div class="v">${won(maxV)}</div><div class="s">&nbsp;</div></div>
+      <div class="hstat"><div class="l">판정</div><div class="v" style="font-size:13px;line-height:1.4">${v.type === "low" ? "✅ 기록상 최저가" : v.type === "new" ? "기록 쌓는 중" : `최저가보다 +${won(p.price - p.minPrice)}`}</div><div class="s">${pts.length}일 기록</div></div>`;
+    $("#hTable").innerHTML = `<thead><tr><th>날짜</th><th>쿠폰 적용가</th><th>쿠폰 전 가격</th><th>전날 대비</th></tr></thead><tbody>` +
+      pts.map((d, i) => { const diff = i ? d.price - pts[i - 1].price : 0;
+        return `<tr><td>${d.date.getFullYear()}.${fmtD(d.date)}</td><td class="num">${won(d.price)}</td><td class="num">${d.pre ? won(d.pre) : "-"}</td>
+          <td class="num">${i === 0 ? "-" : diff === 0 ? "변동 없음" : `${diff > 0 ? "▲ +" : "▼ "}${won(diff)}`}</td></tr>`; }).reverse().join("") + "</tbody>";
+    $("#hNote").textContent = `${H?.d0 ? md(H.d0) + "부터 " : ""}매일 수집한 기록 기준 (사이트의 실제 역대가와 다를 수 있어요)`;
+    $("#histDialog").showModal();
+    drawChart(pts);
+  }
+  $("#grid").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-hist]");
+    if (!b) return;
+    const p = byKey[b.dataset.hist];
+    if (p) openHistory(p);
+  });
+  $("#hClose").addEventListener("click", () => $("#histDialog").close());
+  $("#histDialog").addEventListener("click", (ev) => { if (ev.target.id === "histDialog") $("#histDialog").close(); });
 
   // 출처 필터 (전체 / 지그재그 / 뷰티컬리)
   $("#sourceSeg").addEventListener("click", (ev) => {
