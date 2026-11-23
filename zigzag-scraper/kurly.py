@@ -157,6 +157,10 @@ def main():
         products.update(p)
         print(f"  {i + 1}/{args.loads}: 기획전 {len(c)}개 (새로 {len(new)}개: {', '.join(new)})")
 
+    # 안전장치: 한 번도 못 받았으면 기존 결과·사이트 데이터를 빈 값으로 덮어쓰지 않고 종료
+    if not collections:
+        raise SystemExit("! 기획전을 하나도 받지 못해 저장하지 않고 종료합니다 (기존 데이터 유지)")
+
     for c in collections.values():
         pcts = [products[i]["coupon_pct"] for i in c["product_ids"] if products[i]["coupon_pct"]]
         c["max_coupon_pct"] = max(pcts) if pcts else None

@@ -508,6 +508,9 @@ def main():
                                            ensure_ascii=False), encoding="utf-8")
     else:
         events, products, links = collect(args)
+        # 안전장치: 수집이 통째로 실패하면 기존 결과·사이트 데이터를 빈 값으로 덮어쓰지 않고 종료
+        if not events or not products:
+            raise SystemExit("! 수집된 이벤트/상품이 없어 저장하지 않고 종료합니다 (기존 데이터 유지)")
         out.mkdir(parents=True, exist_ok=True)
         raw_path.write_text(json.dumps({"events": events, "products": products, "links": links},
                                        ensure_ascii=False), encoding="utf-8")
@@ -520,6 +523,8 @@ def main():
             e["product_count"] = len({l["product_id"] for l in links if l["event_id"] == e["event_id"]})
         events = [e for e in events if e["product_count"] > 0]
         out = out / args.cat1
+        if not products:
+            raise SystemExit(f"! '{args.cat1}' 상품이 하나도 없어 저장하지 않고 종료합니다 (기존 데이터 유지)")
 
     # 상품별 쿠폰 정보 (끝난 이벤트에만 있는 상품은 제외해 요청 수 줄임)
     if not args.no_coupon:
