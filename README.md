@@ -3,8 +3,9 @@
 지그재그·뷰티컬리의 **뷰티 이벤트 혜택**(쿠폰 %, 기간, 할인 상품)을 한 화면에서 비교하는 개인 프로젝트입니다.
 
 ## 사이트 보는 법
-1. 이 페이지의 **Code → Download ZIP**으로 내려받아 압축을 풉니다.
-2. `zigzag-compare/index.html`을 더블클릭하면 브라우저에서 열립니다. (설치 필요 없음)
+👉 **https://hyell2.github.io/beauty_project/** (링크를 누르면 바로 열려요, 모바일도 가능)
+
+또는 이 페이지의 **Code → Download ZIP**으로 내려받아 압축을 풀고 `zigzag-compare/index.html`을 열어도 됩니다.
 
 ## 구성
 | 폴더 | 내용 |
